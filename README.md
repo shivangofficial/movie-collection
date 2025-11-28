@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>My Movie Collection — Letterboxd Style</title>
+
+  <style>
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#94a3b8;
+      --accent:#ff7a59;
+      --glass: rgba(255,255,255,0.04);
+      --max-card-width:260px;
+      --radius:12px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      background:linear-gradient(180deg,#071021 0%, var(--bg) 100%);
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:28px;
+    }
+
+    header{
+      display:flex;
+      gap:16px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:20px;
+    }
+    .title{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+    }
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+
+    /* Search / export */
+    .controls{display:flex;gap:10px;align-items:center}
+    .search{
+      background:var(--glass);
+      border:1px solid rgba(255,255,255,0.03);
+      padding:8px 10px;
+      border-radius:10px;
+      color:var(--muted);
+      width:300px;
+      outline:none;
+      transition:box-shadow .18s;
+    }
+    .search:focus{box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+
+    .btn{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.06);
+      color:#dfe9f8;
+      padding:8px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      font-size:13px;
+    }
+    .btn.primary{
+      background:linear-gradient(90deg,var(--accent),#ff5a99);
+      color:#081023;
+      border:none;
+      font-weight:600;
+    }
+
+    /* Grid */
+    .grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap:20px;
+      align-items:start;
+    }
+    .card{
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border-radius:var(--radius);
+      overflow:hidden;
+      max-width:var(--max-card-width);
+      margin:auto;
+      box-shadow: 0 6px 22px rgba(2,6,23,0.6);
+      transition:transform .22s cubic-bezier(.2,.9,.2,1), box-shadow .22s;
+      cursor:pointer;
+      display:flex;
+      flex-direction:column;
+    }
+    .card:hover{ transform: translateY(-6px); box-shadow: 0 18px 40px rgba(2,6,23,0.75);}
+
+    .poster{
+      width:100%;
+      aspect-ratio: 2 / 3;
+      background:#0b1220 center/cover no-repeat;
+      display:block;
+      object-fit:cover;
+    }
+
+    .meta{
+      padding:12px 14px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      color:#dce9fb;
+      font-size:13px;
+    }
+    .title-row{
+      display:flex;
+      gap:8px;
+      align-items:baseline;
+      justify-content:space-between;
+    }
+    .movie-title{font-weight:700}
+    .year{color:var(--muted);font-size:12px}
+
+    .small{color:var(--muted);font-size:13px}
+    .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .tag{
+      background:rgba(255,255,255,0.03);
+      padding:6px 8px;
+      border-radius:8px;
+      font-size:12px;
+      color:var(--muted);
+    }
+
+    .row-between{display:flex;justify-content:space-between;align-items:center}
+    .rating{font-weight:700;color:var(--accent)}
+    .watched{color:var(--muted);font-size:12px}
+
+    /* Modal overlay */
+    .overlay{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg, rgba(0,0,0,0.45), rgba(2,6,23,0.8));
+      z-index:1200;
+      padding:28px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .overlay.show{display:flex; animation:fadeIn .18s ease both;}
+
+    @keyframes fadeIn{
+      from{opacity:0; transform:scale(.99)}
+      to{opacity:1; transform:scale(1)}
+    }
+
+    .modal{
+      width:100%;
+      max-width:980px;
+      background: linear-gradient(180deg,#07122a, #071525);
+      border-radius:16px;
+      overflow:hidden;
+      box-shadow: 0 30px 80px rgba(2,6,23,0.8);
+      transform-origin:center;
+      animation:popIn .26s cubic-bezier(.2,.9,.2,1) both;
+      display:flex;
+      gap:20px;
+    }
+    @keyframes popIn{
+      from{opacity:0; transform:translateY(10px) scale(.995)}
+      to{opacity:1; transform:translateY(0) scale(1)}
+    }
+
+    .modal-left{
+      width:40%;
+      min-width:260px;
+      background:#05101b;
+    }
+    .modal-left img{width:100%; height:100%; display:block; object-fit:cover}
+
+    .modal-right{
+      padding:20px;
+      flex:1;
+      color:#e9f3ff;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    .modal-right h2{margin:0;font-size:20px}
+    .meta-line{color:var(--muted);font-size:13px}
+    .notes{margin-top:8px; color:#cfe2ff; line-height:1.5}
+    .modal-actions{margin-top:auto; display:flex; gap:8px; align-items:center}
+
+    /* small screens */
+    @media (max-width:700px){
+      .modal{flex-direction:column}
+      .modal-left{width:100%;min-height:280px}
+    }
+
+    /* subtle entrance for card details */
+    .card .meta *{transition:opacity .26s, transform .26s}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="title">
+    <h1>My Movie Collection</h1>
+    <p class="lead">Letterboxd-style grid — posters with full details and smooth animations</p>
+  </div>
+
+  <div class="controls">
+    <input id="search" class="search" placeholder="Search title / director / writer / genre" />
+    <button class="btn" id="exportBtn">Export CSV</button>
+    <button class="btn primary" id="addBtn">Add Movie</button>
+  </div>
+</header>
+
+<main>
+  <section id="grid" class="grid" aria-live="polite"></section>
+</main>
+
+<!-- Modal -->
+<div id="overlay" class="overlay" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="modal" role="document" aria-labelledby="modal-title">
+    <div class="modal-left">
+      <img id="modal-poster" src="" alt="Poster" />
+    </div>
+    <div class="modal-right">
+      <h2 id="modal-title"></h2>
+      <div class="meta-line" id="modal-meta"></div>
+      <div class="meta-line" id="modal-genre"></div>
+      <div class="notes" id="modal-notes"></div>
+      <div class="modal-actions">
+        <button class="btn" id="removeBtn">Remove</button>
+        <button class="btn primary" id="closeBtn">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add movie form (simple prompt-based, no persistence beyond session) -->
+<script>
+  // Sample dataset - edit / extend this array.
+  const movies = [
+    {
+      id: 1,
+      title: "The Thing",
+      year: 1982,
+      director: "John Carpenter",
+      writer: "Bill Lancaster",
+      poster: "https://image.tmdb.org/t/p/w400/q2JvQ0w3yKXfY8w5fWv3dG2f3Qp.jpg",
+      rating: 9,
+      watchedOn: "2025-11-10",
+      genre: ["Horror","Sci-Fi"],
+      notes: "Perfect paranoia."
+    },
+    {
+      id: 2,
+      title: "127 Hours",
+      year: 2010,
+      director: "Danny Boyle",
+      writer: "Simon Beaufoy; Aron Ralston",
+      poster: "https://image.tmdb.org/t/p/w400/ujr5pztc1oitbe7ViMUOilFAj9V.jpg",
+      rating: 8,
+      watchedOn: "2025-11-20",
+      genre: ["Drama","Survival"],
+      notes: "Intense and personal."
+    },
+    {
+      id: 3,
+      title: "Cast Away",
+      year: 2000,
+      director: "Robert Zemeckis",
+      writer: "William Broyles Jr.",
+      poster: "",
+      rating: 8,
+      watchedOn: "",
+      genre: ["Survival","Drama"],
+      notes: ""
+    },
+    {
+      id: 4,
+      title: "Blade Runner 2049",
+      year: 2017,
+      director: "Denis Villeneuve",
+      writer: "Hampton Fancher; Michael Green",
+      poster: "",
+      rating: 9,
+      watchedOn: "",
+      genre: ["Sci-Fi"],
+      notes: ""
+    },
+    {
+      id: 5,
+      title: "Her",
+      year: 2013,
+      director: "Spike Jonze",
+      writer: "Spike Jonze",
+      poster: "",
+      rating: 9,
+      watchedOn: "",
+      genre: ["Sci-Fi","Romance"],
+      notes: ""
+    }
+  ];
+
+  // In-memory state
+  let state = {
+    items: [...movies],
+    filter: ""
+  };
+
+  // Utilities
+  const el = sel => document.querySelector(sel);
+  const grid = el("#grid");
+  const overlay = el("#overlay");
+  const modalPoster = el("#modal-poster");
+  const modalTitle = el("#modal-title");
+  const modalMeta = el("#modal-meta");
+  const modalGenre = el("#modal-genre");
+  const modalNotes = el("#modal-notes");
+  const closeBtn = el("#closeBtn");
+  const removeBtn = el("#removeBtn");
+  const searchInput = el("#search");
+  const exportBtn = el("#exportBtn");
+  const addBtn = el("#addBtn");
+
+  function renderGrid(){
+    grid.innerHTML = "";
+    const q = state.filter.trim().toLowerCase();
+    const items = state.items.filter(m=>{
+      if(!q) return true;
+      return (m.title + " " + m.director + " " + (m.writer||"") + " " + (m.genre||[]).join(" ")).toLowerCase().includes(q);
+    });
+
+    if(items.length === 0){
+      grid.innerHTML = '<div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:60px 10px">No movies found — add one with "Add Movie".</div>';
+      return;
+    }
+
+    items.forEach(movie=>{
+      const card = document.createElement("article");
+      card.className = "card";
+      card.tabIndex = 0;
+      card.setAttribute("role","button");
+      card.setAttribute("aria-label", movie.title + " — " + movie.year);
+      card.innerHTML = `
+        <img class="poster" src="${movie.poster || placeholderSrc(movie.title)}" alt="${escapeHtml(movie.title)} poster" loading="lazy" />
+        <div class="meta">
+          <div class="title-row">
+            <div class="movie-title">${escapeHtml(movie.title)}</div>
+            <div class="year">(${movie.year || "—"})</div>
+          </div>
+          <div class="small"><strong>Director:</strong> ${escapeHtml(movie.director || "—")}</div>
+          <div class="small"><strong>Writer:</strong> ${escapeHtml(movie.writer || "—")}</div>
+          <div class="tags">${(movie.genre || []).map(g => `<span class="tag">${escapeHtml(g)}</span>`).join("")}</div>
+          <div class="row-between" style="margin-top:8px">
+            <div class="rating">${movie.rating ? "⭐ " + movie.rating + "/10" : "—"}</div>
+            <div class="watched">${movie.watchedOn ? "Watched: " + escapeHtml(movie.watchedOn) : ""}</div>
+          </div>
+          ${movie.notes ? `<div style="margin-top:8px;color:var(--muted);font-size:13px">${escapeHtml(movie.notes)}</div>` : ""}
+        </div>
+      `;
+
+      // open modal on click / Enter
+      card.addEventListener("click", ()=> openModal(movie));
+      card.addEventListener("keydown", (e)=> { if(e.key === "Enter" || e.key === " ") { e.preventDefault(); openModal(movie);} });
+
+      grid.appendChild(card);
+    });
+  }
+
+  function openModal(movie){
+    modalPoster.src = movie.poster || placeholderSrc(movie.title);
+    modalPoster.alt = movie.title + " poster";
+    modalTitle.textContent = `${movie.title} (${movie.year || "—"})`;
+    modalMeta.textContent = `Director: ${movie.director || "—"}  •  Writer: ${movie.writer || "—"}  •  Rating: ${movie.rating ? movie.rating + "/10" : "—"}`;
+    modalGenre.textContent = `Genres: ${(movie.genre || []).join(", ") || "—" }`;
+    modalNotes.textContent = movie.notes || "";
+    overlay.classList.add("show");
+    overlay.setAttribute("aria-hidden","false");
+
+    // attach remove behavior
+    removeBtn.onclick = () => {
+      if(!confirm(`Remove "${movie.title}" from collection?`)) return;
+      state.items = state.items.filter(m => m.id !== movie.id);
+      renderGrid();
+      closeOverlay();
+    };
+  }
+
+  function closeOverlay(){
+    overlay.classList.remove("show");
+    overlay.setAttribute("aria-hidden","true");
+    // small delay to let animation finish (optional)
+    setTimeout(()=> {
+      modalPoster.src = "";
+    }, 220);
+  }
+
+  // simple placeholder generation (SVG data url)
+  function placeholderSrc(title){
+    const text = encodeURIComponent((title||"Movie").slice(0,20));
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='600'><defs><linearGradient id='g' x1='0' x2='1'><stop offset='0' stop-color='#0b1220'/><stop offset='1' stop-color='#07101a'/></linearGradient></defs><rect width='100%' height='100%' fill='url(#g)' /><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='Arial, sans-serif' font-size='20' fill='#9fb4d6'>${text}</text></svg>`;
+    return `data:image/svg+xml;charset=utf-8,${svg}`;
+  }
+
+  // Export CSV
+  function toCSV(items){
+    const header = ["Title","Year","Director","Writer","Genre","Rating","Watched On","Notes","Poster"];
+    const rows = items.map(m => [
+      csvSafe(m.title),
+      m.year || "",
+      csvSafe(m.director),
+      csvSafe(m.writer),
+      csvSafe((m.genre||[]).join("; ")),
+      m.rating || "",
+      m.watchedOn || "",
+      csvSafe(m.notes),
+      m.poster || ""
+    ]);
+    return [header, ...rows].map(r=>r.join(",")).join("\n");
+  }
+
+  function csvSafe(v){ if(v===undefined || v===null) return ""; const s = String(v).replace(/"/g,'""'); return `"${s}"`; }
+
+  // Basic add movie prompt (quick)
+  function addMoviePrompt(){
+    const title = prompt("Movie title:");
+    if(!title) return;
+    const director = prompt("Director (optional):") || "";
+    const writer = prompt("Writer(s) (optional):") || "";
+    const year = prompt("Year (optional):") || "";
+    const poster = prompt("Poster URL (optional):") || "";
+    const genre = prompt("Comma-separated genres (optional):") || "";
+    const notes = prompt("Short notes (optional):") || "";
+    const ratingStr = prompt("Rating out of 10 (optional):") || "";
+    const rating = ratingStr ? Number(ratingStr) : "";
+    const id = Date.now();
+    state.items.unshift({
+      id, title, director, writer, year, poster, rating,
+      genre: genre ? genre.split(",").map(s=>s.trim()) : [],
+      notes,
+      watchedOn: ""
+    });
+    renderGrid();
+  }
+
+  // helpers
+  function escapeHtml(s){
+    if(!s && s !== 0) return "";
+    return String(s).replace(/[&<>"']/g, (m)=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  // events
+  overlay.addEventListener("click", (e)=> { if(e.target === overlay) closeOverlay(); });
+  closeBtn.addEventListener("click", closeOverlay);
+  document.addEventListener("keydown", (e)=> { if(e.key === "Escape") closeOverlay(); });
+
+  searchInput.addEventListener("input", (e)=> { state.filter = e.target.value; renderGrid(); });
+
+  exportBtn.addEventListener("click", ()=> {
+    const csv = toCSV(state.items);
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "movie_collection.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  addBtn.addEventListener("click", addMoviePrompt);
+
+  // initial render
+  renderGrid();
+
+</script>
+</body>
+</html>
